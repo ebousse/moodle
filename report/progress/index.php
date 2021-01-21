@@ -26,7 +26,8 @@
 require('../../config.php');
 require_once($CFG->libdir . '/completionlib.php');
 
-define('COMPLETION_REPORT_PAGE', 25);
+define('DEFAULT_PAGE_SIZE', 25);
+define('SHOW_ALL_PAGE_SIZE', 5000);
 
 // Get course
 $id = required_param('course',PARAM_INT);
@@ -50,6 +51,7 @@ $start   = optional_param('start', 0, PARAM_INT);
 $sifirst = optional_param('sifirst', 'all', PARAM_NOTAGS);
 $silast  = optional_param('silast', 'all', PARAM_NOTAGS);
 $start   = optional_param('start', 0, PARAM_INT);
+$perpage = optional_param('perpage', DEFAULT_PAGE_SIZE, PARAM_INT);  // how many per page
 
 // Whether to show extra user identity information
 $extrafields = get_extra_user_fields($context);
@@ -148,7 +150,7 @@ if ($total) {
         $where_params,
         $group,
         $firstnamesort ? 'u.firstname ASC, u.lastname ASC' : 'u.lastname ASC, u.firstname ASC',
-        $csv ? 0 : COMPLETION_REPORT_PAGE,
+        $csv ? 0 : $perpage,
         $csv ? 0 : $start,
         $context
     );
@@ -219,7 +221,7 @@ $pagingbar .= $OUTPUT->initials_bar($sifirst, 'firstinitial', get_string('firstn
 $pagingbar .= $OUTPUT->initials_bar($silast, 'lastinitial', get_string('lastname'), $prefixlast, $initialsbarurl);
 
 // Do we need a paging bar?
-if ($total > COMPLETION_REPORT_PAGE) {
+if ($total > $perpage) {
 
     // Paging bar
     $pagingbar .= '<div class="paging">';
@@ -236,7 +238,7 @@ if ($total > COMPLETION_REPORT_PAGE) {
 
     // Display previous link
     if ($start > 0) {
-        $pstart = max($start - COMPLETION_REPORT_PAGE, 0);
+        $pstart = max($start - $perpage, 0);
         $pagingbar .= "(<a class=\"previous\" href=\"{$link}{$pstart}{$sistring}\">".get_string('previous').'</a>)&nbsp;';
     }
 
@@ -252,11 +254,11 @@ if ($total > COMPLETION_REPORT_PAGE) {
             $pagingbar .= "&nbsp;<a href=\"{$link}{$curstart}{$sistring}\">$curpage</a>&nbsp;";
         }
 
-        $curstart += COMPLETION_REPORT_PAGE;
+        $curstart += $perpage;
     }
 
     // Display next link
-    $nstart = $start + COMPLETION_REPORT_PAGE;
+    $nstart = $start + $perpage;
     if ($nstart < $total) {
         $pagingbar .= "&nbsp;(<a class=\"next\" href=\"{$link}{$nstart}{$sistring}\">".get_string('next').'</a>)';
     }
@@ -276,6 +278,19 @@ if (!$csv) {
         echo $OUTPUT->heading(get_string('nothingtodisplay'));
         echo $OUTPUT->footer();
         exit;
+    }
+
+    // Link to display all users or to go back to the default list size
+    if ($perpage == SHOW_ALL_PAGE_SIZE) {
+        $perpageurl = new moodle_url($url, array('perpage' => DEFAULT_PAGE_SIZE));
+        echo html_writer::start_div('', array('id' => 'showall'));
+        echo html_writer::link($perpageurl, get_string('showperpage', '', DEFAULT_PAGE_SIZE));
+        echo html_writer::end_div();
+    } else if ($total > 0 && $perpage < $total) {
+        $perpageurl = new moodle_url($url, array('perpage' => SHOW_ALL_PAGE_SIZE));
+        echo html_writer::start_div('', array('id' => 'showall'));
+        echo html_writer::link($perpageurl, get_string('showall', '', $total));
+        echo html_writer::end_div();
     }
 
     print '<div id="completion-progress-wrapper" class="no-overflow">';
